@@ -120,7 +120,7 @@ func main() {
 		log.Fatalf("failed to listen %v", err)
 	}
 
-	var options grpc.ServerOption
+	options := []grpc.ServerOption{}
 	tls := true
 	if tls {
 
@@ -131,10 +131,11 @@ func main() {
 			log.Fatalf("Failed loading certificates: %v", tlsError)
 			return
 		}
-		options = grpc.Creds(creds)
+		options = append(options, grpc.Creds(creds))
+
 	}
 
-	s := grpc.NewServer(options)
+	s := grpc.NewServer(options...)
 	greetpb.RegisterGreetServiceServer(s, &server{})
 
 	if err := s.Serve(lis); err != nil {
