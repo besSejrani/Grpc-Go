@@ -19,13 +19,19 @@ import (
 func main() {
 	fmt.Println("hello world")
 
-	certFile := "tls/ca.crt" //Certificate Authority Trust certificate
-	creds, tlsError := credentials.NewClientTLSFromFile(certFile, "")
-	if tlsError != nil {
-		log.Fatalf("Error while loading CA trust certificate %v", tlsError)
+	tls := true
+	opts := grpc.WithInsecure()
+	if tls {
+
+		certFile := "tls/ca.crt" //Certificate Authority Trust certificate
+		creds, tlsError := credentials.NewClientTLSFromFile(certFile, "")
+		if tlsError != nil {
+			log.Fatalf("Error while loading CA trust certificate %v", tlsError)
+		}
+
+		opts = grpc.WithTransportCredentials(creds)
 	}
 
-	opts := grpc.WithTransportCredentials(creds)
 	cc, err := grpc.Dial("localhost:50051", opts)
 
 	if err != nil {
