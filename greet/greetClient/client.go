@@ -8,13 +8,25 @@ import (
 	"log"
 	"time"
 
+	"google.golang.org/grpc/credentials"
+
+	"google.golang.org/grpc/codes"
+
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 func main() {
 	fmt.Println("hello world")
 
-	cc, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	certFile := "tls/ca.crt" //Certificate Authority Trust certificate
+	creds, tlsError := credentials.NewClientTLSFromFile(certFile, "")
+	if tlsError != nil {
+		log.Fatalf("Error while loading CA trust certificate %v", tlsError)
+	}
+
+	opts := grpc.WithTransportCredentials(creds)
+	cc, err := grpc.Dial("localhost:50051", opts)
 
 	if err != nil {
 		log.Fatalf("Couldn't connect: %v", err)
@@ -24,13 +36,16 @@ func main() {
 	c := greetpb.NewGreetServiceClient(cc)
 	//fmt.Printf("Created client: %f", c)
 
-	// Unary(c)
+	doUnary(c)
 
 	//doServerStreaming(c)
 
 	//doClientStreaming(c)
 
-	doBiDiStreaming(c)
+	//doBiDiStreaming(c)
+
+	//doUnaryWithDeadline(c, 1*time.Second)
+	//doUnaryWithDeadline(c, 5*time.Second)
 }
 
 func doBiDiStreaming(c greetpb.GreetServiceClient) {
@@ -142,7 +157,7 @@ func doClientStreaming(c greetpb.GreetServiceClient) {
 
 	stream, err := c.LongGreet(context.Background())
 	if err != nil {
-		log.Fatalf("Error while calling long greet", err)
+		log.Fatalf("Error while calling long greet %v", err)
 	}
 
 	//we iterate over our slice and send each message individually
@@ -206,4 +221,36 @@ func doUnary(c greetpb.GreetServiceClient) {
 	}
 	log.Printf("Response from Greet: %v", res.Result)
 
+}
+
+func doUnaryWithDeadline(c greetpb.GreetServiceClient, timeout time.Duration) {
+	fmt.Println("Starting to do UnaryWithDeadline RPC")
+	req := &greetpb.GreetWithDeadlineRequest{
+		Greeting: &greetpb.Greeting{
+			FirstName: "Bes",
+			LastName:  "Sejrani",
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	res, err := c.GreetWithDeadline(ctx, req)
+	if err != nil {
+
+		statusErr, ok := status.FromError(err)
+		if ok {
+			if statusErr.Code() == codes.DeadlineExceeded {
+				fmt.Println("Timeout was hit ! Deadline was exceeded")
+			} else {
+				fmt.Printf("Unexpected error: %v", statusErr)
+			}
+		} else {
+			log.Fatalf("Error while calling GreetWithDeadline RPC: %v", err)
+		}
+		return
+
+	}
+
+	log.Printf("Response from GreetWithDeadline: %v", res.Result)
 }
